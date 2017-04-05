@@ -1,0 +1,157 @@
+module mux (
+    input clk,
+    input rst,
+    input new_rx,
+    input rx_data[8],
+    output new_tx,
+    output tx_data[8],
+    output led[8],
+    input no_chip,
+    input tx_busy
+  ) {
+  
+  .clk(clk) {
+    .rst(rst) {
+      fsm state = {
+        INIT,
+        NO_CHIP_ECHO_DATA,
+        NO_CHIP_ECHO_ADDR,
+        TIED_ADDR_ECHO_DATA,
+        TIED_ADDR_ECHO_ADDR,
+        TIED_DATA_ECHO_DATA,
+        TIED_DATA_ECHO_ADDR,
+        WORKING_ECHO_DATA,
+        WORKING_ECHO_ADDR};
+    }
+  
+      missing_chip missing_chip;
+      faulty_chip faulty_chip;
+      button_conditioner button_conditioner;
+      edge_detector edge_detector(#RISE(1), #FALL(0));
+  }
+  
+  
+  dff state_buffer[8](.clk(clk));
+  dff led_buffer[8](.clk(clk));
+  dff display_state[1](.clk(clk));
+  
+    always {
+      if (display_state.q) {
+        led = state_buffer.q;
+      } else {
+          led = led_buffer.q;
+      }
+    
+      if(new_rx) {
+        display_state.d = 0;
+      }
+    
+      missing_chip.rst = rst;
+      missing_chip.tx_busy = tx_busy;
+      missing_chip.new_rx = new_rx;
+      missing_chip.rx_data = rx_data;
+
+      faulty_chip.rst = rst;
+      faulty_chip.tx_busy = tx_busy;
+      faulty_chip.new_rx = new_rx;
+      faulty_chip.rx_data = rx_data;
+      faulty_chip.address_error = 0;
+      faulty_chip.data_error = 0;
+        
+      new_tx = 0;
+      tx_data = 0;
+
+      button_conditioner.in = no_chip;
+      edge_detector.in = button_conditioner.out;
+    
+      case (state.q) {
+      state.INIT:
+        state.d = state.NO_CHIP_ECHO_DATA;
+        display_state.d = 1;
+      state.NO_CHIP_ECHO_DATA:
+        new_tx = missing_chip.new_tx;
+        tx_data = missing_chip.tx_data;
+        state_buffer.d = 1;
+        led_buffer.d = missing_chip.data;
+
+        if(edge_detector.out) {
+          state.d = state.NO_CHIP_ECHO_ADDR;
+          display_state.d = 1;
+        }
+      state.NO_CHIP_ECHO_ADDR:
+        new_tx = missing_chip.new_tx;
+        tx_data = missing_chip.tx_data;
+        state_buffer.d = 2;
+        led_buffer.d = missing_chip.address;
+
+        if(edge_detector.out) {
+          state.d = state.TIED_DATA_ECHO_DATA;
+          display_state.d = 1;
+        }
+      state.TIED_DATA_ECHO_DATA:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 4;
+        led_buffer.d = faulty_chip.data;
+        faulty_chip.data_error = 1;
+
+        if(edge_detector.out) {
+          state.d = state.TIED_DATA_ECHO_ADDR;
+          display_state.d = 1;
+        }
+      state.TIED_DATA_ECHO_ADDR:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 8;
+        led_buffer.d = faulty_chip.address;
+        faulty_chip.data_error = 1;
+
+        if(edge_detector.out) {
+          state.d = state.TIED_ADDR_ECHO_DATA;
+          display_state.d = 1;
+        }
+      state.TIED_ADDR_ECHO_DATA:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 16;
+        led_buffer.d = faulty_chip.data;
+        faulty_chip.address_error = 1;
+
+        if(edge_detector.out) {
+          state.d = state.TIED_ADDR_ECHO_ADDR;
+          display_state.d = 1;
+        }
+      state.TIED_ADDR_ECHO_ADDR:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 32;
+        led_buffer.d = faulty_chip.address;
+        faulty_chip.address_error = 1;
+
+        if(edge_detector.out) {
+          state.d = state.WORKING_ECHO_DATA;
+          display_state.d = 1;
+        }
+      state.WORKING_ECHO_DATA:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 64;
+        led_buffer.d = faulty_chip.data;
+ 
+        if(edge_detector.out) {
+          state.d = state.WORKING_ECHO_ADDR;
+          display_state.d = 1;
+        }
+      state.WORKING_ECHO_ADDR:
+        new_tx = faulty_chip.new_tx;
+        tx_data = faulty_chip.tx_data;
+        state_buffer.d = 128;
+        led_buffer.d = faulty_chip.address;
+
+        if(edge_detector.out) {
+          state.d = state.NO_CHIP_ECHO_DATA;
+          display_state.d = 1;
+        }
+      }
+  }
+}

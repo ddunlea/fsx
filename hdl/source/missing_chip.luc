@@ -1,0 +1,83 @@
+module missing_chip (
+    input clk,
+    input rst,
+    input new_rx,
+    input rx_data[8],
+    output new_tx,
+    output tx_data[8],
+    output address[8],
+    output data[8],
+    input tx_busy
+  ) {
+
+  .clk(clk) {
+    .rst(rst) {
+      fsm state = {
+        IDLE,
+        WRITE_ADDRESS,
+        WRITE_DATA,
+        READ_ADDRESS,
+        READ_DATA,
+        CONFIRM_RESET};
+    }
+  }
+  
+  dff buffer[8](.clk(clk));
+  dff address_buffer[8](.clk(clk));
+  dff data_buffer[8](.clk(clk));
+  dff new_tx_buffer[1](.clk(clk));
+  dff new_tx_buffer_d[1](.clk(clk));
+  
+  always {
+    new_tx_buffer.d = 0;
+    new_tx = new_tx_buffer_d.q;
+    new_tx_buffer_d.d = new_tx_buffer.q;
+    tx_data = buffer.q;
+
+    address = address_buffer.q;
+    data = data_buffer.q;
+    
+    case (state.q) {
+      state.IDLE:
+        if (new_rx) {
+          case (rx_data) {
+          "X":
+            state.d = state.CONFIRM_RESET;
+          "r":
+            state.d = state.READ_ADDRESS;
+          "w":
+            state.d = state.WRITE_ADDRESS;
+          }
+        }
+      state.CONFIRM_RESET:
+        if (!tx_busy) {
+          new_tx_buffer.d = 1;
+          data_buffer.d = 0;
+          buffer.d = "X";
+          state.d = state.IDLE;
+        }
+      state.READ_ADDRESS:
+        if (new_rx) {
+          address_buffer.d = rx_data;
+          state.d = state.READ_DATA;
+        }
+      state.WRITE_ADDRESS:         
+        if (new_rx) {
+          address_buffer.d = rx_data;
+          state.d = state.WRITE_DATA;
+        }
+      state.READ_DATA:
+        if (!tx_busy) {
+          new_tx_buffer.d = 1;
+          data_buffer.d = buffer.q;
+          state.d = state.IDLE;
+        }
+      state.WRITE_DATA:
+        if (new_rx) {
+          buffer.d = rx_data;
+          data_buffer.d = rx_data;
+          state.d = state.IDLE;
+        }
+    }     
+  }
+}

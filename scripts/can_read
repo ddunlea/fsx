@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "mono build/FpgaTest.exe --run \"FsCheck/Data that is written can be read\""
+mono build/FpgaTest.exe --run "FsCheck/Data that is written can be read"

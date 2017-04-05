@@ -1,0 +1,45 @@
+#!/usr/bin/python
+
+import os
+
+files = os.listdir(".")
+most_recent = None
+most_recent_mtime = None
+for f in files:
+    if most_recent == None:
+        most_recent = f
+        most_recent_mtime = os.path.getmtime(f)
+    if os.path.isfile(f):
+        mtime = os.path.getmtime(f)
+        if mtime > most_recent_mtime:
+            most_recent = f
+            most_recent_mtime = os.path.getmtime(f)
+
+data = open(most_recent).read()
+d2 = ''.join([i if ord(i) < 128 else '' for i in list(data)])
+lines = d2.split("(Shrunk: ")
+all_parts = []
+for l in lines[1:]:
+    middle = l.split(")")[0]
+    parts = middle.split(" ")
+    all_parts.append(parts)
+print
+if "_" in all_parts[0][0]:
+    print "7654 3210, 7654 3210, 7654 3210, 7654 3210"
+    print "__________________________________________"
+distinct_count = [0,0,0,0,0,0,0,0]
+for parts in all_parts:
+    l0 = list(parts[0])
+    l1 = list(parts[1])
+    for i in range(0,8):
+        if l0[i] != l1[i]:
+            distinct_count[i] += 1
+    print ", ".join(parts)
+
+foo = [str(7 - x[0]) for x in enumerate(distinct_count) if x[1] == 0]
+foo.reverse()
+csv = ", ".join(foo)
+print "bits %s were always identical" % csv
+for i in range(0,8):
+    if distinct_count[i] > 0:
+        print "Bit %s differed %s times" % (7 - i, distinct_count[i])

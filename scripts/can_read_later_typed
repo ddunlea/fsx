@@ -1,0 +1,6 @@
+#!/usr/bin/python
+import subprocess
+
+print "mono build/FpgaTest.exe --run \"FsCheck/Data that is written can be read later - Typed\""
+args = ["unbuffer", "mono","build/FpgaTest.exe", "--run",  "FsCheck/Data that is written can be read later - Typed"]
+subprocess.call(args)

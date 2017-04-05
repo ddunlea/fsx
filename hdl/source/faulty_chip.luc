@@ -1,0 +1,142 @@
+module faulty_chip (
+    input clk,
+    input rst,
+    input new_rx,
+    input rx_data[8],
+    output new_tx,
+    output tx_data[8],
+    output address[8],
+    output data[8],
+    input tx_busy,
+    input data_error,
+    input address_error
+  ) {
+
+  .clk(clk) {
+    .rst(rst) {
+      fsm state = {
+        INIT,
+        LOADING,
+        IDLE,
+        WRITE_ADDRESS,
+        WRITE_DATA,
+        READ_ADDRESS,
+        READ_DATA,
+        CONFIRM_RESET};
+    }
+    simple_ram ram (#SIZE(8), #DEPTH(256));
+  }
+  
+  dff counter[8](.clk(clk));
+
+  dff address_status[8](.clk(clk));
+  dff data_status[8](.clk(clk));
+  
+  dff address_buffer[8](.clk(clk));
+  dff write_data_buffer[8](.clk(clk));
+  dff tx_data_buffer[8](.clk(clk));
+  dff new_tx_buffer[1](.clk(clk));
+  dff new_tx_buffer_d1[1](.clk(clk));
+  dff write_en_buffer(.clk(clk));
+  
+  always {
+    write_en_buffer.d = 0;
+    new_tx_buffer.d = 0;
+    
+    address = address_status.q;
+    data = data_status.q;
+    
+    ram.address = address_buffer.q;
+    ram.write_data = write_data_buffer.q;
+    ram.write_en = write_en_buffer.q;
+    
+    tx_data_buffer.d = ram.read_data;
+    if(data_error) {
+      tx_data_buffer.d[4] = ram.read_data[3];
+    }
+
+    tx_data = tx_data_buffer.q;
+    new_tx_buffer_d1.d = new_tx_buffer.q;
+    new_tx = new_tx_buffer_d1.q;
+    if(new_tx_buffer_d1.q) {
+      data_status.d = tx_data_buffer.q;
+    }
+    
+    case (state.q) {
+      state.INIT:
+        counter.d = 0;
+        state.d = state.LOADING;
+      state.LOADING:
+        address_buffer.d = counter.q;
+        write_data_buffer.d = counter.q;
+        write_en_buffer.d = 1;
+        counter.d = counter.q + 1;
+        if(counter.q == 8hff) {
+          state.d = state.IDLE;
+        }
+      state.IDLE:
+        if (new_rx) {
+          case (rx_data) {
+          "X":
+            state.d = state.CONFIRM_RESET;
+          "r":
+            state.d = state.READ_ADDRESS;
+          "w":
+            state.d = state.WRITE_ADDRESS;
+          }
+        }
+      state.CONFIRM_RESET:
+        if (!tx_busy) {
+          new_tx_buffer_d1.d = 1;
+          tx_data_buffer.d = "X";
+          address_status.d = 0;
+          data_status.d = 0;
+          state.d = state.IDLE;
+        }
+      state.READ_ADDRESS:
+        if (new_rx) {
+          address_status.d = rx_data;
+          address_buffer.d = rx_data;
+          if(address_error) {
+            if(rx_data[7]) {
+              address_buffer.d[6] = rx_data[7];
+            }
+            if(rx_data[6]) {
+              address_buffer.d[7] = rx_data[6];
+            }
+          }
+            
+          state.d = state.READ_DATA;
+        }
+      state.READ_DATA:
+        if (!tx_busy) {
+          new_tx_buffer.d = 1;
+          state.d = state.IDLE;
+        }
+      state.WRITE_ADDRESS:         
+        if (new_rx) {
+          address_status.d = rx_data;
+          address_buffer.d = rx_data;
+          if(address_error) {
+            if(rx_data[7]) {
+              address_buffer.d[6] = rx_data[7];
+            }
+            if(rx_data[6]) {
+              address_buffer.d[7] = rx_data[6];
+            }
+          }
+          state.d = state.WRITE_DATA;
+        }
+      state.WRITE_DATA:
+        if (new_rx) {
+          data_status.d = rx_data;
+          write_data_buffer.d = rx_data;
+          if(data_error) {
+            write_data_buffer.d[4] = rx_data[3];
+          }
+          write_en_buffer.d = 1;
+          state.d = state.IDLE;
+        }
+    }
+  }
+}

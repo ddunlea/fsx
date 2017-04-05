@@ -1,0 +1,31 @@
+#!/usr/bin/python
+
+import os
+
+files = os.listdir(".")
+most_recent = None
+most_recent_mtime = None
+for f in files:
+    if most_recent == None:
+        most_recent = f
+        most_recent_mtime = os.path.getmtime(f)
+    if os.path.isfile(f):
+        mtime = os.path.getmtime(f)
+        if mtime > most_recent_mtime:
+            most_recent = f
+            most_recent_mtime = os.path.getmtime(f)
+
+data = open(most_recent).read()
+d2 = ''.join([i if ord(i) < 128 else '' for i in list(data)])
+lines = d2.split("(Shrunk: ")
+all_parts = []
+for l in lines[1:]:
+    middle = l.split(")")[0]
+    parts = middle.split(" ")
+    all_parts.append(parts)
+print
+if "_" in all_parts[0][0]:
+    print "7654 3210, 7654 3210, 7654 3210, 7654 3210"
+    print "__________________________________________"
+for parts in all_parts:
+    print ", ".join(parts)

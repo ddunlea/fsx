@@ -1,0 +1,9 @@
+source https://www.nuget.org/api/v2
+nuget Expecto
+nuget Expecto.FsCheck
+nuget FAKE
+nuget FsCheck
+nuget FsCheck.Nunit
+nuget FsCheck.Xunit
+nuget FSharp.Core
+nuget FsUnit
